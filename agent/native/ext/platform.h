@@ -23,6 +23,7 @@
 #   if __has_include (<libunwind.h>)
 #       define ELASTIC_APM_CAN_CAPTURE_C_STACK_TRACE
 #       define ELASTIC_APM_PLATFORM_HAS_LIBUNWIND
+#       include <libunwind.h>
 #   elif __has_include (<features.h>)
 #       include <features.h>
 #       if defined __GLIBC__ && __has_include (<execinfo.h>)
@@ -32,6 +33,12 @@
 #       endif
 #   endif
 #endif
+
+
+#if !__has_include(<execinfo.h>)
+    char ** execinfo_backtrace_symbols(void *const *buffer, int size);
+#endif
+
 
 #include <stdbool.h>
 #include <errno.h>
@@ -72,13 +79,17 @@ size_t captureStackTraceWindows( void** addressesBuffer, size_t addressesBufferS
     captureStackTraceWindows( (addressesBuffer), (addressesBufferSize) )
 #else
 #   ifdef ELASTIC_APM_PLATFORM_HAS_BACKTRACE
-#       define ELASTIC_APM_CAPTURE_STACK_TRACE( addressesBuffer, addressesBufferSize ) \
-            backtrace( (addressesBuffer), (addressesBufferSize) )
+#       define ELASTIC_APM_CAPTURE_STACK_TRACE( addressesBuffer, addressesBufferSize ) backtrace( (addressesBuffer), (addressesBufferSize) )
 #   else
-#       define ELASTIC_APM_CAPTURE_STACK_TRACE( addressesBuffer, addressesBufferSize ) \
-            0
+#       ifdef ELASTIC_APM_PLATFORM_HAS_LIBUNWIND
+#           define ELASTIC_APM_CAPTURE_STACK_TRACE( addressesBuffer, addressesBufferSize ) unw_backtrace( (addressesBuffer), (addressesBufferSize) )
+#           define ELASTIC_APM_PLATFORM_HAS_BACKTRACE
+#       else
+#          define ELASTIC_APM_CAPTURE_STACK_TRACE( addressesBuffer, addressesBufferSize ) 0
+#       endif
 #   endif
 #endif
+
 
 String streamStackTrace( void* const* addresses, size_t addressesCount, String linePrefix, TextOutputStream* txtOutStream );
 
