@@ -81,9 +81,9 @@ IF ( $ENV{CLION_IDE} )
     ADD_COMPILE_DEFINITIONS( ELASTIC_APM_UNDER_IDE )
 ENDIF()
 
-IF ( "$ENV{ELASTIC_APM_ASSUME_CAN_CAPTURE_C_STACK_TRACE}" STREQUAL "true" )
+# IF ( "$ENV{ELASTIC_APM_ASSUME_CAN_CAPTURE_C_STACK_TRACE}" STREQUAL "true" )
     ADD_COMPILE_DEFINITIONS( ELASTIC_APM_ASSUME_CAN_CAPTURE_C_STACK_TRACE )
-ENDIF()
+# ENDIF()
 
 IF ( WIN32 )
     ADD_COMPILE_DEFINITIONS( PHP_WIN32 )
@@ -122,6 +122,9 @@ IF ( NOT WIN32 )
     # Link to library required by math.h 
     SET( link_with_libraries ${link_with_libraries} m )
 ENDIF()
+
+target_include_directories(unit_tests PUBLIC
+             ${CONAN_INCLUDE_DIRS_LIBUNWIND} )
 
 target_link_libraries( unit_tests PRIVATE CONAN_PKG::cmocka
                                 PRIVATE CONAN_PKG::libunwind

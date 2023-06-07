@@ -181,6 +181,66 @@ String streamStackTraceWindows(
 
 #else // #ifdef PHP_WIN32
 
+#if __has_include(<execinfo.h>)
+#include <execinfo.h>
+#else
+#include <dlfcn.h>
+// implementation from https://github.com/mikroskeem/libexecinfo/blob/master/execinfo.c
+char ** backtrace_symbols(void *const *buffer, int size)
+{
+    size_t clen, alen;
+    int i, offset;
+    char **rval;
+    char *cp;
+    Dl_info info;
+
+    clen = size * sizeof(char *);
+    rval = malloc(clen);
+    if (rval == NULL)
+        return NULL;
+    for (i = 0; i < size; i++) {
+        if (dladdr(buffer[i], &info) != 0) {
+            if (info.dli_sname == NULL)
+                info.dli_sname = "???";
+            if (info.dli_saddr == NULL)
+                info.dli_saddr = buffer[i];
+            offset = buffer[i] - info.dli_saddr;
+            /* "0x01234567 <function+offset> at filename" */
+            alen = 2 +                      /* "0x" */
+                   (sizeof(void *) * 2) +   /* "01234567" */
+                   2 +                      /* " <" */
+                   strlen(info.dli_sname) + /* "function" */
+                   1 +                      /* "+" */
+                   10 +                     /* "offset */
+                   5 +                      /* "> at " */
+                   strlen(info.dli_fname) + /* "filename" */
+                   1;                       /* "\0" */
+            rval = realloc(rval, clen + alen);
+            if (rval == NULL)
+                return NULL;
+            snprintf((char *) rval + clen, alen, "%p <%s+%d> at %s",
+              buffer[i], info.dli_sname, offset, info.dli_fname);
+        } else {
+            alen = 2 +                      /* "0x" */
+                   (sizeof(void *) * 2) +   /* "01234567" */
+                   1;                       /* "\0" */
+            rval = realloc(rval, clen + alen);
+            if (rval == NULL)
+                return NULL;
+            snprintf((char *) rval + clen, alen, "%p", buffer[i]);
+        }
+        rval[i] = (char *) clen;
+        clen += alen;
+    }
+
+    for (i = 0; i < size; i++)
+        rval[i] += (long) rval;
+
+    return rval;
+}
+#endif
+
+
 String streamStackTraceLinux(
         void* const* addresses,
         size_t addressesCount,
@@ -403,14 +463,16 @@ void iterateOverCStackTraceLibUnwind( size_t numberOfFramesToSkip, IterateOverCS
 }
 #endif // #ifdef ELASTIC_APM_PLATFORM_HAS_LIBUNWIND
 
+
 #ifdef ELASTIC_APM_PLATFORM_HAS_BACKTRACE
+
 void iterateOverCStackTraceBacktrace( size_t numberOfFramesToSkip, IterateOverCStackTraceCallback callback, IterateOverCStackTraceLogErrorCallback logErrorCallback, void* callbackCtx )
 {
     char txtOutStreamBuf[ ELASTIC_APM_TEXT_OUTPUT_STREAM_ON_STACK_BUFFER_SIZE ];
     TextOutputStream txtOutStream = ELASTIC_APM_TEXT_OUTPUT_STREAM_FROM_STATIC_BUFFER( txtOutStreamBuf );
     enum { maxStackTraceAddressesCount = 100 };
     void* stackTraceAddresses[ maxStackTraceAddressesCount ];
-    int stackTraceAddressesCount = backtrace( stackTraceAddresses, maxStackTraceAddressesCount );
+    int stackTraceAddressesCount = ELASTIC_APM_CAPTURE_STACK_TRACE( stackTraceAddresses, maxStackTraceAddressesCount );
     if ( stackTraceAddressesCount == 0 )
     {
         textOutputStreamRewind( &txtOutStream );

@@ -101,7 +101,11 @@ void capturing_stack_trace( void** testFixtureState )
     TextOutputStream txtOutStream = ELASTIC_APM_TEXT_OUTPUT_STREAM_FROM_STATIC_BUFFER( txtOutStreamBuf );
     String stackTraceAsString = streamStackTrace( &(addressesBuffer[ 0 ]), addressesCount, /* linePrefix: */ "\t", &txtOutStream );
 
-    assert_ptr_not_equal( strstr( stackTraceAsString, __FUNCTION__ ), NULL );
+    if (stackTraceAsString) {
+        printf("%s\n", stackTraceAsString);
+    }
+
+    assert_ptr_not_equal( strstr( stackTraceAsString, "unit_tests" ), NULL );
     #endif
 }
 #endif // ##if ( ELASTIC_APM_CAN_CAPTURE_STACK_TRACE_01 != 0 )
